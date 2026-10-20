@@ -1,0 +1,6 @@
+{
+  "name": "VidhyTop",
+  "description": "AI tutoring, exam preparation, Kalam handwritten interactive notes, EduTube discovery, focus tools, custom launcher, and friends study leaderboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

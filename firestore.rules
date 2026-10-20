@@ -1,0 +1,402 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    function incoming() {
+      return request.resource.data;
+    }
+    function existing() {
+      return resource.data;
+    }
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // 1. UserProfile Validation Blueprint
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 60 &&
+             (!('schoolName' in data) || data.schoolName == null || (data.schoolName is string && data.schoolName.size() <= 100)) &&
+             data.gradeLevel is string && data.gradeLevel.size() >= 1 && data.gradeLevel.size() <= 40 &&
+             (!('subjects' in data) || data.subjects == null || (data.subjects is list && data.subjects.size() <= 15 && (data.subjects.size() == 0 || (data.subjects[0] is string && data.subjects[0].size() <= 60)))) &&
+             (!('examType' in data) || data.examType == null || (data.examType is string && data.examType.size() <= 80)) &&
+             (!('nextExamDate' in data) || data.nextExamDate == null || (data.nextExamDate is string && data.nextExamDate.size() <= 30)) &&
+             (!('prepStartDate' in data) || data.prepStartDate == null || (data.prepStartDate is string && data.prepStartDate.size() <= 30)) &&
+             data.dailyStudyTargetMinutes is int && data.dailyStudyTargetMinutes >= 15 && data.dailyStudyTargetMinutes <= 720 &&
+             (!('preferredSchedule' in data) || data.preferredSchedule == null || (data.preferredSchedule is string && data.preferredSchedule.size() <= 60)) &&
+             data.pomodoroFocusMinutes is int && data.pomodoroFocusMinutes >= 5 && data.pomodoroFocusMinutes <= 120 &&
+             data.pomodoroBreakMinutes is int && data.pomodoroBreakMinutes >= 1 && data.pomodoroBreakMinutes <= 60 &&
+             data.onboardingCompleted is bool &&
+             data.referralCode is string && data.referralCode.size() >= 4 && data.referralCode.size() <= 20 &&
+             (!('referredByCode' in data) || data.referredByCode == null || (data.referredByCode is string && data.referredByCode.size() <= 20)) &&
+             data.shareStatsWithFriends is bool &&
+             (!('ultraFocusPasscodeHash' in data) || data.ultraFocusPasscodeHash == null || (data.ultraFocusPasscodeHash is string && data.ultraFocusPasscodeHash.size() <= 128)) &&
+             (!('allowedApps' in data) || data.allowedApps == null || (data.allowedApps is list && data.allowedApps.size() <= 30 && (data.allowedApps.size() == 0 || (data.allowedApps[0] is string && data.allowedApps[0].size() <= 120)))) &&
+             (!('blockedApps' in data) || data.blockedApps == null || (data.blockedApps is list && data.blockedApps.size() <= 30 && (data.blockedApps.size() == 0 || (data.blockedApps[0] is string && data.blockedApps[0].size() <= 120)))) &&
+             data.themeMode is string && (data.themeMode == 'system' || data.themeMode == 'light' || data.themeMode == 'dark') &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    // 2. PublicStudyProfile Validation Blueprint
+    function isValidPublicStudyProfile(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 60 &&
+             (!('gradeLevel' in data) || data.gradeLevel == null || (data.gradeLevel is string && data.gradeLevel.size() <= 40)) &&
+             data.referralCode is string && data.referralCode.size() >= 4 && data.referralCode.size() <= 20 &&
+             data.totalVerifiedStudyMinutes is int && data.totalVerifiedStudyMinutes >= 0 && data.totalVerifiedStudyMinutes <= 1000000 &&
+             data.totalVerifiedFocusMinutes is int && data.totalVerifiedFocusMinutes >= 0 && data.totalVerifiedFocusMinutes <= 1000000 &&
+             data.completedPomodoroSessions is int && data.completedPomodoroSessions >= 0 && data.completedPomodoroSessions <= 100000 &&
+             data.currentStreakDays is int && data.currentStreakDays >= 0 && data.currentStreakDays <= 3650 &&
+             data.longestStreakDays is int && data.longestStreakDays >= 0 && data.longestStreakDays <= 3650 &&
+             (!('lastQualifyingSessionDate' in data) || data.lastQualifyingSessionDate == null || (data.lastQualifyingSessionDate is string && data.lastQualifyingSessionDate.size() <= 20)) &&
+             (!('earnedBadges' in data) || data.earnedBadges == null || (data.earnedBadges is list && data.earnedBadges.size() <= 20 && (data.earnedBadges.size() == 0 || (data.earnedBadges[0] is string && data.earnedBadges[0].size() <= 40)))) &&
+             data.shareStatsWithFriends is bool &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    // 3. StudyNote Validation Blueprint
+    function isValidStudyNote(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 150 &&
+             data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 60 &&
+             data.sourceType is string && (data.sourceType == 'topic' || data.sourceType == 'photo' || data.sourceType == 'pdf') &&
+             (!('sourceSummary' in data) || data.sourceSummary == null || (data.sourceSummary is string && data.sourceSummary.size() <= 5000)) &&
+             data.kalamNoteContent is string && data.kalamNoteContent.size() >= 1 && data.kalamNoteContent.size() <= 20000 &&
+             (!('keyTermsJson' in data) || data.keyTermsJson == null || (data.keyTermsJson is string && data.keyTermsJson.size() <= 10000)) &&
+             (!('formulasSummary' in data) || data.formulasSummary == null || (data.formulasSummary is string && data.formulasSummary.size() <= 5000)) &&
+             (!('revisionSummary' in data) || data.revisionSummary == null || (data.revisionSummary is string && data.revisionSummary.size() <= 5000)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    // 4. StudyTask Validation Blueprint
+    function isValidStudyTask(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 60 &&
+             data.topicTitle is string && data.topicTitle.size() >= 1 && data.topicTitle.size() <= 150 &&
+             data.taskType is string && (data.taskType == 'study' || data.taskType == 'revision' || data.taskType == 'practice') &&
+             data.scheduledDate is string && data.scheduledDate.size() >= 1 && data.scheduledDate.size() <= 20 &&
+             data.plannedDurationMinutes is int && data.plannedDurationMinutes >= 5 && data.plannedDurationMinutes <= 360 &&
+             data.completed is bool &&
+             (!('examName' in data) || data.examName == null || (data.examName is string && data.examName.size() <= 80)) &&
+             (!('examDate' in data) || data.examDate == null || (data.examDate is string && data.examDate.size() <= 20)) &&
+             data.difficulty is string && (data.difficulty == 'easy' || data.difficulty == 'medium' || data.difficulty == 'hard') &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    // 5. FocusSession Validation Blueprint
+    function isValidFocusSession(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.mode is string && (data.mode == 'normal' || data.mode == 'pomodoro' || data.mode == 'ultra') &&
+             data.durationMinutes is int && data.durationMinutes >= 1 && data.durationMinutes <= 480 &&
+             data.pomodoroIntervalsCompleted is int && data.pomodoroIntervalsCompleted >= 0 && data.pomodoroIntervalsCompleted <= 24 &&
+             (!('subjectTag' in data) || data.subjectTag == null || (data.subjectTag is string && data.subjectTag.size() <= 60)) &&
+             data.sessionDate is string && data.sessionDate.size() >= 1 && data.sessionDate.size() <= 20 &&
+             data.completed is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    // 6. TutorMessage Validation Blueprint
+    function isValidTutorMessage(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.role is string && (data.role == 'user' || data.role == 'assistant') &&
+             data.content is string && data.content.size() >= 1 && data.content.size() <= 15000 &&
+             (!('subjectContext' in data) || data.subjectContext == null || (data.subjectContext is string && data.subjectContext.size() <= 60)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    // 7. SavedVideo Validation Blueprint
+    function isValidSavedVideo(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.youtubeVideoId is string && data.youtubeVideoId.size() >= 1 && data.youtubeVideoId.size() <= 40 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+             data.channelTitle is string && data.channelTitle.size() >= 1 && data.channelTitle.size() <= 120 &&
+             data.subjectCategory is string && data.subjectCategory.size() >= 1 && data.subjectCategory.size() <= 60 &&
+             (!('thumbnailUrl' in data) || data.thumbnailUrl == null || (data.thumbnailUrl is string && data.thumbnailUrl.size() <= 500)) &&
+             (!('durationText' in data) || data.durationText == null || (data.durationText is string && data.durationText.size() <= 30)) &&
+             data.isSaved is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    // 8. Friendship Validation Blueprint
+    function isValidFriendship(data) {
+      return data.requesterId is string && data.requesterId.size() >= 1 && data.requesterId.size() <= 128 &&
+             data.receiverId is string && data.receiverId.size() >= 1 && data.receiverId.size() <= 128 &&
+             data.requesterId != data.receiverId &&
+             data.requesterName is string && data.requesterName.size() >= 1 && data.requesterName.size() <= 60 &&
+             data.receiverName is string && data.receiverName.size() >= 1 && data.receiverName.size() <= 60 &&
+             (!('requesterReferralCode' in data) || data.requesterReferralCode == null || (data.requesterReferralCode is string && data.requesterReferralCode.size() <= 20)) &&
+             data.status is string && (data.status == 'pending' || data.status == 'accepted' || data.status == 'declined') &&
+             data.participantUids is list && data.participantUids.size() == 2 &&
+             data.participantUids[0] is string && data.participantUids[0].size() <= 128 &&
+             data.requesterId in data.participantUids &&
+             data.receiverId in data.participantUids &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    // Collection: /users/{userId}
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if isOwner(userId);
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().keys().hasAll([
+                         'userId', 'displayName', 'gradeLevel', 'dailyStudyTargetMinutes',
+                         'pomodoroFocusMinutes', 'pomodoroBreakMinutes', 'onboardingCompleted',
+                         'referralCode', 'shareStatsWithFriends', 'themeMode', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'displayName', 'schoolName', 'gradeLevel', 'subjects',
+                         'examType', 'nextExamDate', 'prepStartDate', 'dailyStudyTargetMinutes',
+                         'preferredSchedule', 'pomodoroFocusMinutes', 'pomodoroBreakMinutes',
+                         'onboardingCompleted', 'referralCode', 'referredByCode',
+                         'shareStatsWithFriends', 'ultraFocusPasscodeHash', 'allowedApps',
+                         'blockedApps', 'themeMode', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'displayName', 'schoolName', 'gradeLevel', 'subjects',
+                         'examType', 'nextExamDate', 'prepStartDate', 'dailyStudyTargetMinutes',
+                         'preferredSchedule', 'pomodoroFocusMinutes', 'pomodoroBreakMinutes',
+                         'onboardingCompleted', 'referralCode', 'referredByCode',
+                         'shareStatsWithFriends', 'ultraFocusPasscodeHash', 'allowedApps',
+                         'blockedApps', 'themeMode', 'updatedAt'
+                       ]);
+
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      // Subcollection: /users/{userId}/notes/{noteId}
+      match /notes/{noteId} {
+        allow get: if isOwner(userId) && isValidId(noteId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(noteId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'title', 'subject', 'sourceType',
+                           'kalamNoteContent', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'title', 'subject', 'sourceType', 'sourceSummary',
+                           'kalamNoteContent', 'keyTermsJson', 'formulasSummary',
+                           'revisionSummary', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidStudyNote(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(noteId) &&
+                         isValidStudyNote(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'title', 'subject', 'sourceType', 'sourceSummary',
+                           'kalamNoteContent', 'keyTermsJson', 'formulasSummary',
+                           'revisionSummary', 'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(noteId);
+      }
+
+      // Subcollection: /users/{userId}/study_tasks/{taskId}
+      match /study_tasks/{taskId} {
+        allow get: if isOwner(userId) && isValidId(taskId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(taskId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'subject', 'topicTitle', 'taskType',
+                           'scheduledDate', 'plannedDurationMinutes', 'completed',
+                           'difficulty', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'subject', 'topicTitle', 'taskType',
+                           'scheduledDate', 'plannedDurationMinutes', 'completed',
+                           'examName', 'examDate', 'difficulty', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidStudyTask(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(taskId) &&
+                         isValidStudyTask(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'subject', 'topicTitle', 'taskType', 'scheduledDate',
+                           'plannedDurationMinutes', 'completed', 'examName',
+                           'examDate', 'difficulty', 'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(taskId);
+      }
+
+      // Subcollection: /users/{userId}/focus_sessions/{sessionId}
+      match /focus_sessions/{sessionId} {
+        allow get: if isOwner(userId) && isValidId(sessionId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(sessionId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'mode', 'durationMinutes', 'pomodoroIntervalsCompleted',
+                           'sessionDate', 'completed', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'mode', 'durationMinutes', 'pomodoroIntervalsCompleted',
+                           'subjectTag', 'sessionDate', 'completed', 'createdAt'
+                         ]) &&
+                         isValidFocusSession(incoming());
+
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(sessionId);
+      }
+
+      // Subcollection: /users/{userId}/tutor_messages/{messageId}
+      match /tutor_messages/{messageId} {
+        allow get: if isOwner(userId) && isValidId(messageId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(messageId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'role', 'content', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'role', 'content', 'subjectContext', 'createdAt'
+                         ]) &&
+                         isValidTutorMessage(incoming());
+
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(messageId);
+      }
+
+      // Subcollection: /users/{userId}/saved_videos/{videoId}
+      match /saved_videos/{videoId} {
+        allow get: if isOwner(userId) && isValidId(videoId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(videoId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'youtubeVideoId', 'title', 'channelTitle',
+                           'subjectCategory', 'isSaved', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'youtubeVideoId', 'title', 'channelTitle',
+                           'subjectCategory', 'thumbnailUrl', 'durationText',
+                           'isSaved', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidSavedVideo(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(videoId) &&
+                         isValidSavedVideo(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'title', 'channelTitle', 'subjectCategory', 'thumbnailUrl',
+                           'durationText', 'isSaved', 'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(videoId);
+      }
+    }
+
+    // Collection: /public_profiles/{userId}
+    match /public_profiles/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (existing().userId == request.auth.uid || existing().shareStatsWithFriends == true);
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.shareStatsWithFriends == true);
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().keys().hasAll([
+                         'userId', 'displayName', 'referralCode', 'totalVerifiedStudyMinutes',
+                         'totalVerifiedFocusMinutes', 'completedPomodoroSessions',
+                         'currentStreakDays', 'longestStreakDays', 'shareStatsWithFriends', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'displayName', 'gradeLevel', 'referralCode',
+                         'totalVerifiedStudyMinutes', 'totalVerifiedFocusMinutes',
+                         'completedPomodoroSessions', 'currentStreakDays', 'longestStreakDays',
+                         'lastQualifyingSessionDate', 'earnedBadges', 'shareStatsWithFriends', 'updatedAt'
+                       ]) &&
+                       isValidPublicStudyProfile(incoming());
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       isValidPublicStudyProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'displayName', 'gradeLevel', 'referralCode',
+                         'totalVerifiedStudyMinutes', 'totalVerifiedFocusMinutes',
+                         'completedPomodoroSessions', 'currentStreakDays', 'longestStreakDays',
+                         'lastQualifyingSessionDate', 'earnedBadges', 'shareStatsWithFriends', 'updatedAt'
+                       ]);
+
+      allow delete: if isOwner(userId) && isValidId(userId);
+    }
+
+    // Collection: /friendships/{friendshipId}
+    match /friendships/{friendshipId} {
+      allow get: if isSignedIn() && isValidId(friendshipId) &&
+                    (existing().requesterId == request.auth.uid || existing().receiverId == request.auth.uid);
+      allow list: if isSignedIn() &&
+                     (resource.data.requesterId == request.auth.uid ||
+                      resource.data.receiverId == request.auth.uid ||
+                      request.auth.uid in resource.data.participantUids);
+
+      allow create: if isSignedIn() &&
+                       isValidId(friendshipId) &&
+                       incoming().requesterId == request.auth.uid &&
+                       incoming().status == 'pending' &&
+                       incoming().keys().hasAll([
+                         'requesterId', 'receiverId', 'requesterName', 'receiverName',
+                         'status', 'participantUids', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'requesterId', 'receiverId', 'requesterName', 'receiverName',
+                         'requesterReferralCode', 'status', 'participantUids', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidFriendship(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(friendshipId) &&
+                       isValidFriendship(incoming()) &&
+                       existing().status == 'pending' &&
+                       request.auth.uid == existing().receiverId &&
+                       incoming().requesterId == existing().requesterId &&
+                       incoming().receiverId == existing().receiverId &&
+                       incoming().createdAt == existing().createdAt &&
+                       (incoming().status == 'accepted' || incoming().status == 'declined') &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+
+      allow delete: if isSignedIn() &&
+                       isValidId(friendshipId) &&
+                       (existing().requesterId == request.auth.uid || existing().receiverId == request.auth.uid);
+    }
+  }
+}

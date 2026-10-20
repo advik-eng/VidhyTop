@@ -1,0 +1,266 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private student profile, onboarding preferences, study schedule config, and focus settings owned exclusively by the authenticated student.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase Auth UID." },
+        "displayName": { "type": "string", "description": "Student preferred display name (1..60 chars)." },
+        "schoolName": { "type": "string", "description": "Optional school or institution name (0..100 chars)." },
+        "gradeLevel": { "type": "string", "description": "Grade or class level (1..40 chars)." },
+        "subjects": { "type": "array", "description": "List of subjects studied (up to 15 strings)." },
+        "examType": { "type": "string", "description": "Target examination type (0..80 chars)." },
+        "nextExamDate": { "type": "string", "description": "Upcoming exam ISO date YYYY-MM-DD (0..30 chars)." },
+        "prepStartDate": { "type": "string", "description": "Preparation start ISO date YYYY-MM-DD (0..30 chars)." },
+        "dailyStudyTargetMinutes": { "type": "integer", "description": "Available daily study time in minutes (15..720)." },
+        "preferredSchedule": { "type": "string", "description": "Preferred study schedule period (0..60 chars)." },
+        "pomodoroFocusMinutes": { "type": "integer", "description": "Configured Pomodoro focus interval in minutes (5..120)." },
+        "pomodoroBreakMinutes": { "type": "integer", "description": "Configured Pomodoro break interval in minutes (1..60, default 5)." },
+        "onboardingCompleted": { "type": "boolean", "description": "Whether first-time onboarding is complete." },
+        "referralCode": { "type": "string", "description": "Unique student referral code (4..20 chars)." },
+        "referredByCode": { "type": "string", "description": "Optional referral code used during signup (0..20 chars)." },
+        "shareStatsWithFriends": { "type": "boolean", "description": "Privacy toggle controlling leaderboard visibility." },
+        "ultraFocusPasscodeHash": { "type": "string", "description": "SHA-256 hash of Ultra Focus exit passcode (0..128 chars)." },
+        "allowedApps": { "type": "array", "description": "Allowed Android package names in Ultra Focus Launcher." },
+        "blockedApps": { "type": "array", "description": "Distracting package names flagged in Focus Mode." },
+        "themeMode": { "type": "string", "enum": ["system", "light", "dark"], "description": "Appearance setting." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp of creation (FieldValue.serverTimestamp())." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp of last update (FieldValue.serverTimestamp())." }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "gradeLevel",
+        "dailyStudyTargetMinutes",
+        "pomodoroFocusMinutes",
+        "pomodoroBreakMinutes",
+        "onboardingCompleted",
+        "referralCode",
+        "shareStatsWithFriends",
+        "themeMode",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PublicStudyProfile": {
+      "title": "PublicStudyProfile",
+      "description": "Privacy-safe public study summary for friend search, referral lookup, and friend group leaderboards (no PII, email, or school exposed).",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase Auth UID." },
+        "displayName": { "type": "string", "description": "Student display name (1..60 chars)." },
+        "gradeLevel": { "type": "string", "description": "Student grade/class (0..40 chars)." },
+        "referralCode": { "type": "string", "description": "Unique referral code for friend invitations (4..20 chars)." },
+        "totalVerifiedStudyMinutes": { "type": "integer", "description": "Total verified study minutes from completed tasks/sessions." },
+        "totalVerifiedFocusMinutes": { "type": "integer", "description": "Total verified focus timer minutes." },
+        "completedPomodoroSessions": { "type": "integer", "description": "Count of completed Pomodoro intervals." },
+        "currentStreakDays": { "type": "integer", "description": "Current consecutive qualifying focus days." },
+        "longestStreakDays": { "type": "integer", "description": "Longest consecutive focus streak in days." },
+        "lastQualifyingSessionDate": { "type": "string", "description": "ISO date YYYY-MM-DD of last qualifying focus session." },
+        "earnedBadges": { "type": "array", "description": "List of earned milestone badge IDs." },
+        "shareStatsWithFriends": { "type": "boolean", "description": "Whether this profile is discoverable by friends and visible on friend leaderboards." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp of last update (FieldValue.serverTimestamp())." }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "referralCode",
+        "totalVerifiedStudyMinutes",
+        "totalVerifiedFocusMinutes",
+        "completedPomodoroSessions",
+        "currentStreakDays",
+        "longestStreakDays",
+        "shareStatsWithFriends",
+        "updatedAt"
+      ]
+    },
+    "StudyNote": {
+      "title": "StudyNote",
+      "description": "Interactive handwritten Kalam study note generated from a topic, photo OCR, or imported PDF.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase Auth UID." },
+        "title": { "type": "string", "description": "Note topic title (1..150 chars)." },
+        "subject": { "type": "string", "description": "Academic subject name (1..60 chars)." },
+        "sourceType": { "type": "string", "enum": ["topic", "photo", "pdf"], "description": "Origin of the study material." },
+        "sourceSummary": { "type": "string", "description": "Preserved original extracted text from photo/PDF or topic prompt (0..5000 chars)." },
+        "kalamNoteContent": { "type": "string", "description": "Structured handwritten revision notes formatted for Kalam typography (1..20000 chars)." },
+        "keyTermsJson": { "type": "string", "description": "Serialized list of interactive key terms and definitions (0..10000 chars)." },
+        "formulasSummary": { "type": "string", "description": "Important formulas or rules summary (0..5000 chars)." },
+        "revisionSummary": { "type": "string", "description": "Quick exam revision summary points (0..5000 chars)." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp of creation (FieldValue.serverTimestamp())." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp of last update (FieldValue.serverTimestamp())." }
+      },
+      "required": [
+        "userId",
+        "title",
+        "subject",
+        "sourceType",
+        "kalamNoteContent",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "StudyTask": {
+      "title": "StudyTask",
+      "description": "Personalized daily exam preparation study, revision, or practice task.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase Auth UID." },
+        "subject": { "type": "string", "description": "Subject name (1..60 chars)." },
+        "topicTitle": { "type": "string", "description": "Chapter or syllabus topic title (1..150 chars)." },
+        "taskType": { "type": "string", "enum": ["study", "revision", "practice"], "description": "Type of preparation task." },
+        "scheduledDate": { "type": "string", "description": "Scheduled date YYYY-MM-DD (1..20 chars)." },
+        "plannedDurationMinutes": { "type": "integer", "description": "Planned duration in minutes (5..360)." },
+        "completed": { "type": "boolean", "description": "Whether the student completed this task." },
+        "examName": { "type": "string", "description": "Associated exam name (0..80 chars)." },
+        "examDate": { "type": "string", "description": "Associated exam ISO date YYYY-MM-DD (0..20 chars)." },
+        "difficulty": { "type": "string", "enum": ["easy", "medium", "hard"], "description": "Topic difficulty." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp of creation (FieldValue.serverTimestamp())." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp of last update (FieldValue.serverTimestamp())." }
+      },
+      "required": [
+        "userId",
+        "subject",
+        "topicTitle",
+        "taskType",
+        "scheduledDate",
+        "plannedDurationMinutes",
+        "completed",
+        "difficulty",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "FocusSession": {
+      "title": "FocusSession",
+      "description": "Completed Focus Mode or Pomodoro study session record.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase Auth UID." },
+        "mode": { "type": "string", "enum": ["normal", "pomodoro", "ultra"], "description": "Focus mode type." },
+        "durationMinutes": { "type": "integer", "description": "Verified active focus duration in minutes (1..480)." },
+        "pomodoroIntervalsCompleted": { "type": "integer", "description": "Number of Pomodoro intervals completed (0..24)." },
+        "subjectTag": { "type": "string", "description": "Optional subject studied during session (0..60 chars)." },
+        "sessionDate": { "type": "string", "description": "Local date YYYY-MM-DD for streak evaluation (1..20 chars)." },
+        "completed": { "type": "boolean", "description": "True only when session genuinely finished." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp of completion (FieldValue.serverTimestamp())." }
+      },
+      "required": [
+        "userId",
+        "mode",
+        "durationMinutes",
+        "pomodoroIntervalsCompleted",
+        "sessionDate",
+        "completed",
+        "createdAt"
+      ]
+    },
+    "TutorMessage": {
+      "title": "TutorMessage",
+      "description": "AI Tutor conversation message persisted in the student's history.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase Auth UID." },
+        "role": { "type": "string", "enum": ["user", "assistant"], "description": "Sender role." },
+        "content": { "type": "string", "description": "Message text content (1..15000 chars)." },
+        "subjectContext": { "type": "string", "description": "Active subject tag (0..60 chars)." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp (FieldValue.serverTimestamp())." }
+      },
+      "required": [
+        "userId",
+        "role",
+        "content",
+        "createdAt"
+      ]
+    },
+    "SavedVideo": {
+      "title": "SavedVideo",
+      "description": "Saved or recently watched educational video in EduTube.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase Auth UID." },
+        "youtubeVideoId": { "type": "string", "description": "YouTube video ID (1..40 chars)." },
+        "title": { "type": "string", "description": "Video title (1..200 chars)." },
+        "channelTitle": { "type": "string", "description": "Educational channel title (1..120 chars)." },
+        "subjectCategory": { "type": "string", "description": "Educational category (1..60 chars)." },
+        "thumbnailUrl": { "type": "string", "description": "Thumbnail URL (0..500 chars)." },
+        "durationText": { "type": "string", "description": "Formatted duration string (0..30 chars)." },
+        "isSaved": { "type": "boolean", "description": "Whether bookmarked in Saved Videos." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp (FieldValue.serverTimestamp())." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp (FieldValue.serverTimestamp())." }
+      },
+      "required": [
+        "userId",
+        "youtubeVideoId",
+        "title",
+        "channelTitle",
+        "subjectCategory",
+        "isSaved",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Friendship": {
+      "title": "Friendship",
+      "description": "Authenticated friend request and accepted friendship relationship between two students.",
+      "type": "object",
+      "properties": {
+        "requesterId": { "type": "string", "description": "UID of user who sent the friend request." },
+        "receiverId": { "type": "string", "description": "UID of user who received the friend request." },
+        "requesterName": { "type": "string", "description": "Display name of requester (1..60 chars)." },
+        "receiverName": { "type": "string", "description": "Display name of receiver (1..60 chars)." },
+        "requesterReferralCode": { "type": "string", "description": "Referral code used (0..20 chars)." },
+        "status": { "type": "string", "enum": ["pending", "accepted", "declined"], "description": "Friendship status." },
+        "participantUids": { "type": "array", "description": "Bounded 2-element list containing requesterId and receiverId." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp of request creation (FieldValue.serverTimestamp())." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp of status update (FieldValue.serverTimestamp())." }
+      },
+      "required": [
+        "requesterId",
+        "receiverId",
+        "requesterName",
+        "receiverName",
+        "status",
+        "participantUids",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private student profile and settings scoped strictly to userId."
+    },
+    "/public_profiles/{userId}": {
+      "schema": { "$ref": "#/entities/PublicStudyProfile" },
+      "description": "Privacy-safe public leaderboard & referral profile for each student."
+    },
+    "/users/{userId}/notes/{noteId}": {
+      "schema": { "$ref": "#/entities/StudyNote" },
+      "description": "Student's Kalam handwritten interactive notes."
+    },
+    "/users/{userId}/study_tasks/{taskId}": {
+      "schema": { "$ref": "#/entities/StudyTask" },
+      "description": "Student's personalized exam preparation daily tasks."
+    },
+    "/users/{userId}/focus_sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/FocusSession" },
+      "description": "Student's completed Focus Mode and Pomodoro sessions."
+    },
+    "/users/{userId}/tutor_messages/{messageId}": {
+      "schema": { "$ref": "#/entities/TutorMessage" },
+      "description": "Student's AI Tutor chat history messages."
+    },
+    "/users/{userId}/saved_videos/{videoId}": {
+      "schema": { "$ref": "#/entities/SavedVideo" },
+      "description": "Student's saved and recently watched EduTube videos."
+    },
+    "/friendships/{friendshipId}": {
+      "schema": { "$ref": "#/entities/Friendship" },
+      "description": "Friend requests and accepted friendships between students."
+    }
+  }
+}
